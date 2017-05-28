@@ -1,6 +1,5 @@
-#define PI 3.14159265358979323846
-
 #define GEN_SWAP(Type)        \
+static inline                 \
 void swap(Type *a, Type *b) { \
   Type c = *a;                \
   *a = *b;                    \
@@ -26,56 +25,59 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
 
 static
 bool intersect(
-  const double3 origin,
-  const double3 dir,
-  const double3 center,
-  const double r,
+  double3 origin,
+  double3 dir,
+  double3 center,
+  double r,
   double3 *pt)
 {
-  double3 oc = (center - origin);
-  double oh = dot((center - origin), dir);
-  if (oh < 0.)
-    return false;
-  double n_oc = length(oc);
-  double ch2 = (n_oc * n_oc) - (oh * oh);
-  if (ch2 > r * r)
-    return false;
-  double d2 = r * r - ch2;
+  double3 oc;
+  double d2, ch2, oh, t1, t2;
+  int collide = 1;
 
-  double t1 = oh + sqrt(d2);
-  double t2 = oh - sqrt(d2);
+  oc = (center - origin);
+  oh = dot(oc, dir);
+  collide = mix(collide, 0, (double)(oh < 0));
+
+  ch2 = pow(length(oc), 2) - (oh * oh);
+  collide = mix(collide, 0, (double)(ch2 > r * r));
+
+  d2 = sqrt(r * r - ch2);
+  t1 = oh + d2;
+  t2 = oh - d2;
   if (t1 > t2)
     swap(&t1, &t2);
-  if (t1 < 0.) {
-      t1 = t2;
-      if (t1 < 0.)
-        return false;
-  }
+  t1 = mix(t1, t2, (double)(t1 < 0));
+  collide = mix(collide, 0, (double)(t1 < 0.));
 
   *pt = origin + dir * t1;
-  return true;
+  return collide;
 }
 
+#define FOV 45.0
+#define PI 3.14159265358979323846
+#define DEG2RAD 0.017453292519943295
+
 static
-double3 compute_ray(const struct scene_t scene, const int2 pos) {
-  const double width = scene.width;
-  const double height = scene.height;
-  const double fov = 45.0;
-  const double deg2rad = (PI * 2.) / 360.;
+double3 compute_ray(struct scene_t scene, int2 pos) {
+  double width, height, L, t_width, t_height;
+  double3 center, pt;
 
-  double L = width / (tan(deg2rad * (fov / 2.)) * 2.);
-  double3 center = scene.camera_pos + scene.camera_fwd * L;
+  width = scene.width;
+  height = scene.height;
 
-  double t_width = mix(-width, width, pos.x / width) / 2.;
-  double t_height= mix(-height, height, pos.y / height) / 2.;
+  L = width / (tan(DEG2RAD * (FOV * 0.5)) * 2.);
+  center = scene.camera_pos + scene.camera_fwd * L;
 
-  double3 pt = scene.camera_right * t_width
+  t_width = mix(-width, width, pos.x / width) * 0.5;
+  t_height= mix(-height, height, pos.y / height) * 0.5;
+
+  pt = scene.camera_right * t_width
             + scene.camera_up * t_height
             + scene.camera_fwd
             + center;
   return normalize(pt - scene.camera_pos);
 }
-
 
 __kernel void raytracer(
   __constant struct scene_t *p,

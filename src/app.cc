@@ -60,10 +60,10 @@ int app_t::add_kernel(const char* filename) {
 void app_t::render() {
   struct scene_t p =
   {
-    1366,
-    768,
-    2,
-    2,
+    4096 * 4,
+    4096 * 4,
+    8,
+    8,
     { 0., 0., -10., 0. },
     { 1., 0., 0. , 0. },
     { 0., 1., 0. , 0. },
@@ -104,6 +104,7 @@ void app_t::render() {
   }
   printf("[INFO] Rendering done in %d ms.\n", (int)(elapsed * 1000.));
 
+#ifdef OUTPUT
   uint8_t *render = new uint8_t[4 * p.width * p.height];
 
   cl::size_t<3> origin;
@@ -124,4 +125,5 @@ void app_t::render() {
 
   lodepng::encode("output.png", render, p.width, p.height);
   delete[] render;
+#endif
 }
