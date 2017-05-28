@@ -1,0 +1,114 @@
+#define PI 3.14159265358979323846
+
+#define GEN_SWAP(Type)        \
+void swap(Type *a, Type *b) { \
+  Type c = *a;                \
+  *a = *b;                    \
+  *b = c;                     \
+}
+GEN_SWAP(double);
+
+struct scene_t {
+  int width;
+  int height;
+  int ker_width;
+  int ker_height;
+
+  double3 camera_pos;
+  double3 camera_right;
+  double3 camera_up;
+  double3 camera_fwd;
+};
+
+__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
+                             | CLK_ADDRESS_CLAMP_TO_EDGE
+                             | CLK_FILTER_NEAREST;
+
+static
+bool intersect(
+  const double3 origin,
+  const double3 dir,
+  const double3 center,
+  const double r,
+  double3 *pt)
+{
+  double3 oc = (center - origin);
+  double oh = dot((center - origin), dir);
+  if (oh < 0.)
+    return false;
+  double n_oc = length(oc);
+  double ch2 = (n_oc * n_oc) - (oh * oh);
+  if (ch2 > r * r)
+    return false;
+  double d2 = r * r - ch2;
+
+  double t1 = oh + sqrt(d2);
+  double t2 = oh - sqrt(d2);
+  if (t1 > t2)
+    swap(&t1, &t2);
+  if (t1 < 0.) {
+      t1 = t2;
+      if (t1 < 0.)
+        return false;
+  }
+
+  *pt = origin + dir * t1;
+  return true;
+}
+
+static
+double3 compute_ray(const struct scene_t scene, const int2 pos) {
+  const double width = scene.width;
+  const double height = scene.height;
+  const double fov = 45.0;
+  const double deg2rad = (PI * 2.) / 360.;
+
+  double L = width / (tan(deg2rad * (fov / 2.)) * 2.);
+  double3 center = scene.camera_pos + scene.camera_fwd * L;
+
+  double t_width = mix(-width, width, pos.x / width) / 2.;
+  double t_height= mix(-height, height, pos.y / height) / 2.;
+
+  double3 pt = scene.camera_right * t_width
+            + scene.camera_up * t_height
+            + scene.camera_fwd
+            + center;
+  return normalize(pt - scene.camera_pos);
+}
+
+
+__kernel void raytracer(
+  __constant struct scene_t *p,
+  __write_only image2d_t output
+)
+{
+  const double3 sun_dir = normalize((double3)(-0.3, 0.8, 0.5));
+  const float3 sky_color = (float3)(240, 248, 255);
+  const float3 sphere_color = (float3)(155, 255, 0);
+
+  const double3 sphere_o = (double3)(0.0f, 0.0f, 0.0f);
+  const double sphere_r = 2.0;
+
+  const int2 pos = (int2)(
+                 get_global_id(0) * p->ker_width, get_global_id(1) * p->ker_height);
+
+  for (int y = 0; y < p->ker_height; y++) {
+    for (int x = 0; x < p->ker_width; x++) {
+      bool touch;
+      double3 look_d, normal, pt;
+      float3 color;
+
+      int2 local_pos = (int2)(pos.x + x, pos.y + y);
+
+      look_d = compute_ray(*p, local_pos); 
+      touch = intersect(p->camera_pos, look_d, sphere_o, sphere_r, &pt);
+      normal = normalize(pt - sphere_o);
+
+      color = sphere_color * clamp((float)dot(normal, -sun_dir), 0.0f, 1.0f);
+      color = mix(sky_color, color, touch);
+
+      uint4 albedo = (uint4)(color.x, color.y, color.z, 255);
+      write_imageui(output, local_pos, albedo);
+    }
+  }
+}
