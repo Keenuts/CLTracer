@@ -30,7 +30,6 @@ app_t::app_t() {
       std::cout << "[Platform] Device type not found\n";
     else
       std::cout << "[Platform] Unspecified error\n";
-      
   }
   assert(res == CL_SUCCESS);
 
@@ -41,7 +40,7 @@ int app_t::add_kernel(const char* filename) {
   cl_int res;
   std::ifstream f(filename);
   std::string content((std::istreambuf_iterator<char>(f)),
-                       std::istreambuf_iterator<char>()); 
+                       std::istreambuf_iterator<char>());
   f.close();
 
   cl::Program k(m_context, content);
@@ -60,14 +59,14 @@ int app_t::add_kernel(const char* filename) {
 void app_t::render() {
   struct scene_t p =
   {
-    4096 * 4,
-    4096 * 4,
+    256,
+    256,
     8,
     8,
-    { 0., 0., -10., 0. },
-    { 1., 0., 0. , 0. },
-    { 0., 1., 0. , 0. },
-    { 0., 0., 1. , 0. },
+    { 0.0f , 0.0f, -20.0f, 0.0f },
+    { 1.0f , 0.0f, 0.0f  , 0.0f },
+    { 0.0f , 1.0f, 0.0f  , 0.0f },
+    { 0.0f , 0.0f, 1.0f  , 0.0f },
   };
 
   const int ker_nbr_w = p.width / p.ker_width;

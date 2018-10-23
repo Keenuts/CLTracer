@@ -1,14 +1,14 @@
-CXXFLAGS=-Wall -Wextra -Werror `pkg-config --cflags $(LIBS)`
-
 LIBS=OpenCL
-LDLIBS=`pkg-config --libs $(LIBS)`
-
 VPATH=src
+
+LDFLAGS=
+LDLIBS=`pkg-config --libs ${LIBS}`
+CXXFLAGS=-Wall -Wextra -Werror $(pkg-config --cflags $(LIBS)) -g -DOUTPUT
 
 OBJ=main.o lodepng.o app.o
 
 main: $(OBJ)
-	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	$(CXX) $^ $(LDLIBS) -o $@
 
 all: main
 

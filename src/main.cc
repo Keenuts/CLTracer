@@ -4,7 +4,7 @@
 
 int main() {
   app_t app = app_t();
-  if (app.add_kernel("kern/kernel.comp"))
+  if (app.add_kernel("kern/kernel.cl"))
     return 1;
   app.render();
 
